@@ -21,10 +21,10 @@ if(!class_exists('\Autophoto\Autophoto')){
       require_once __DIR__ . "/scanner.php";
       $this->scanner = new Scanner();
 
-      require_once __DIR__ . "/album_post_type.php";
-      new AlbumPostType();
-      require_once __DIR__ . "/photo_post_type.php";
-      new PhotoPostType();
+      require_once __DIR__ . "/autophoto_post_type.php";
+      new AutophotoPostType(true);
+
+      require_once __DIR__ . "/album.php";
 
     }
 

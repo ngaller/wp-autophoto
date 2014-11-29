@@ -18,10 +18,6 @@ class Scanner
     // TODO
     //add_action('autophoto_scanner_event', array(&$this, 'scan'));
 
-    require_once("photo_post_type.php");
-    require_once("album_post_type.php");
-    $this->photo_post_type = new PhotoPostType();
-    $this->album_post_type = new AlbumPostType();
   }
 
 
@@ -47,11 +43,12 @@ class Scanner
    */
   public function scan() {
     $options = get_option('autophoto_options');
+    $folder = $options["scan_folder"];
     $scan_result = new \StdClass();
     $scan_result->new_albums = 0;
     $scan_result->new_pictures = 0;
     try {
-      $this->do_scan_recursive($options["scan_folder"], 0, $scan_result);
+      Album::get_toplevel_album($folder)->scan_folder($folder, $scan_result);
     } catch(\Exception $e) {
       $scan_result->error = $e->getMessage();
     }
@@ -64,46 +61,6 @@ class Scanner
 
   public function remove_schedule() {
     wp_clear_scheduled_hook('autophoto_scanner_event');
-  }
-
-  /**
-   * Look for images and subfolders (sub-albums) in the designated folder.
-   *
-   * @param String $folder 
-   * @param int $parent_album  Album to create items under.  If 0, then we will be looking for / creating top level album.
-   * @param $result Object to accumulate result
-   */
-  private function do_scan_recursive($folder, $parent_album, $result) {
-    $album = $this->album_post_type->find_album(basename($folder), $parent_album);
-    if(!$album){
-      $album = $this->album_post_type->create_album_post(basename($folder), $parent_album);
-      $result->new_albums++;
-      $photos = null;
-    } else {
-      $photos = $this->photo_post_type->get_album_photo_names($album);
-    }
-    $dh = opendir($folder);
-    if(!$dh) {
-      throw new \Exception("Unable to open folder: $folder");
-    }
-    while(($file = readdir($dh)) !== false) {
-      $file = "$folder/$file";
-      if(is_dir($file) && basename($file)[0] != ".") {
-        $this->do_scan_recursive($file, $album, $result);
-      } else if(is_file($file) && $this->is_picture($file) ) {
-        if(!isset($photos[$this->photo_post_type->get_photo_name($album, $file)])) {
-          $this->photo_post_type->create_photo_post($file, $album);
-          $result->new_pictures++;
-        }
-      }
-    }
-    closedir($dh);
-    $this->album_post_type->update_album_date($album);
-  }
-
-  private function is_picture($file) {
-    $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-    return $ext == "jpeg" || $ext == "jpg";
   }
 
 

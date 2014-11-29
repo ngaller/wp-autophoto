@@ -18,7 +18,7 @@ class Album {
     $root = new Album(0);
     $album = $root->find_album($folder_name);
     if(!$album){
-      $album = $root->create_album($folder_name);
+      $album = $root->create_album_post($folder_name);
     }
   }
 
@@ -37,26 +37,27 @@ class Album {
   /**
    * Create child album
    */
-  private function create_album($name){
+  private function create_child_post($name, $post_data=array()){
     $args = array(
       'post_name' => $name,
       'post_title' => ucwords($name),
       'post_status' => 'publish',
-      'post_type' => 'autophoto-album',
+      'post_type' => AutophotoPostType::POST_TYPE,
       'post_parent' => $this->album_id
     );
-    $album = wp_insert_post($args, true);
-    if(is_wp_error($album))
-      throw new \Exception("Album creation failed: " + $album->get_message());
-    return new Album($album);
+    $args = array_merge($args, $post_data);
+    $post = wp_insert_post($args, true);
+    if(is_wp_error($post))
+      throw new \Exception("Post creation failed: " + $post->get_message());
+    return $post;
   }
 
   /**
-   * Create a child picture
+   * Look for images and subfolders (sub-albums) in the designated folder.
+   *
+   * @param String $folder 
+   * @param $result Object to accumulate result
    */
-  private function create_photo_post($path){
-  }
-
   public function scan_folder($folder, $result){
     $dh = opendir($folder);
     if(!$dh) {
@@ -68,17 +69,19 @@ class Album {
         $album = $this->find_album($file);
         if(!$album) {
           $result->new_albums++;
-          $album = $this->create_album($file);
+          $album = new Album($this->create_child_post($file));
         }
         $album->scan_folder($full_path, $result);
       } else if(is_file($full_path) && $this->is_picture($full_path) ) {
         if(!$this->has_photo_file($full_path)){
-          $this->create_photo_post($full_path);
+          $photo = new Photo($this->create_child_post($this->get_photo_name($file)), Photo::get_post_data($file));
+          $photo->update_photo_data($full_path);
           $result->new_pictures++;
         }
       }
     }
     closedir($dh);
+    $this->update_album_date();
   }
 
   /**
@@ -117,6 +120,22 @@ class Album {
       $result[$post->post_name] = $post->ID;
     }
     return $result;
+  }
+
+  private function is_picture($file) {
+    $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+    return $ext == "jpeg" || $ext == "jpg";
+  }
+
+  /** 
+   * Recalculate the album date as a function of all photos contained within the album
+   */
+  private function update_album_date(){
+    global $wpdb;
+    $d = $wpdb->get_var($wpdb->prepare("select min(post_date) from $wpdb->posts where post_parent=%d and post_type like 'autophoto-%%'", $albumid));
+    if($d){
+      wp_update_post(array('ID' => $albumid, 'post_date' => $d));
+    }
   }
 
 

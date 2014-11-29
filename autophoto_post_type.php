@@ -1,59 +1,24 @@
 <?php
 namespace Autophoto;
 
-class AlbumPostType {
-  const POST_TYPE = "autophoto-album";
+/**
+ * Autophoto post type definition, used for photos as well as albums.
+ */
+class AutophotoPostType {
+  const POST_TYPE = "autophoto";
 
   private $_meta = array(
   );
 
-  public function __construct(){
-    add_action('init', array(&$this, 'init'));
-    add_action('admin_init', array(&$this, 'admin_init'));
-  }
-
   /**
-   * Locate existing album under the given parent album (or top level album, if null)
-   *
-   * @return int album id, or 0 if not found.
+   * If initialize is specified, this registers the hooks necessary for the post type.
+   * Otherwise, the constructor does nothing.
    */
-  public function find_album($name, $parent_album){
-    $args = array("post_parent" => $parent_album, "post_type" => "autophoto-album", "name" => $name);
-    $matches = get_posts($args);
-    if(count($matches) > 0){
-      return $matches[0]->ID;
+  public function __construct($initialize=false){
+    if($initialize){
+      add_action('init', array(&$this, 'init'));
+      add_action('admin_init', array(&$this, 'admin_init'));
     }
-    return 0;
-  }
-
-  /** 
-   * Recalculate the album date as a function of all photos contained within the album
-   */
-  public function update_album_date($albumid){
-    global $wpdb;
-    $d = $wpdb->get_var($wpdb->prepare("select min(post_date) from $wpdb->posts where post_parent=%d and post_type like 'autophoto-%%'", $albumid));
-    if($d){
-      wp_update_post(array('ID' => $albumid, 'post_date' => $d));
-    }
-  }
-
-  /**
-   * Create new post for the album under parent album
-   *
-   * @return int album id
-   */
-  public function create_album_post($name, $parent_album){
-    $args = array(
-      'post_name' => $name,
-      'post_title' => ucwords($name),
-      'post_status' => 'publish',
-      'post_type' => 'autophoto-album',
-      'post_parent' => $parent_album
-    );
-    $album = wp_insert_post($args, true);
-    if(is_wp_error($album))
-      throw new \Exception("Album creation failed: " + $album->get_message());
-    return $album;
   }
 
   public function admin_init() {
@@ -99,9 +64,18 @@ class AlbumPostType {
       if(@$_GET["display"] == "thumbnail")
         # special case where we just want to spit out the thumbnail data
         return __DIR__ . "/templates/album-thumbnail.php";
-      if($theme_file = locate_template("single-autophoto-album.php"))
-        return $theme_file;
-      return __DIR__ . "/templates/single-autophoto-album.php";
+      # do we have a picture, or an album?
+      # if there is a path associated with it, it should be a picture
+      # note the get_metadata call is cached
+      if(!empty($post->_autophoto_path)){
+        if($theme_file = locate_template("single-autophoto-photo.php"))
+          return $theme_file;
+        return __DIR__ . "/templates/single-autophoto-photo.php";
+      } else {
+        if($theme_file = locate_template("single-autophoto-album.php"))
+          return $theme_file;
+        return __DIR__ . "/templates/single-autophoto-album.php";
+      }
     }
     return $template;
   }
@@ -119,7 +93,7 @@ class AlbumPostType {
         'public' => true,
         'has_archive' => true,
         'hierarchical' => true,
-        'description' => 'Autophoto Album',
+        'description' => 'Autophoto',
         'supports' => array('title', 'editor'),
         'rewrite' => array('slug' => 'autophoto')
       ));
