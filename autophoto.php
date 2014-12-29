@@ -25,6 +25,7 @@ if(!class_exists('\Autophoto\Autophoto')){
       new AutophotoPostType(true);
 
       require_once __DIR__ . "/album.php";
+      require_once __DIR__ . "/photo.php";
 
     }
 
@@ -43,7 +44,7 @@ if(!class_exists('\Autophoto\Autophoto')){
       $this->scanner->remove_schedule();
     }
   }
-  register_activation_hook(__FILE__, array('\Autophoto\Autophoto', 'activate'));
-  register_deactivation_hook(__FILE__, array('\Autophoto\Autophoto', 'deactivate'));
   $autophoto = new Autophoto();
+  register_activation_hook(__FILE__, array($autophoto, 'activate'));
+  register_deactivation_hook(__FILE__, array($autophoto, 'deactivate'));
 }

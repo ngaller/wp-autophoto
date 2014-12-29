@@ -24,9 +24,9 @@ class Photo {
 #    if(count($post_data) > 1){
 #      wp_update_post($post_data);
 #    }
-    $thumb = $this->generate_thumb($file);
-    add_post_meta($photo, "_autophoto_path", $path);
-    add_post_meta($photo, "_autophoto_thumb", $thumb);
+    $thumb = $this->generate_thumb($path);
+    add_post_meta($this->photo_id, "_autophoto_path", $path);
+    add_post_meta($this->photo_id, "_autophoto_thumb", $thumb);
 
   }
 
@@ -34,7 +34,7 @@ class Photo {
    * Generate base post data based on the specified file.
    */
   public static function get_post_data($file) {
-    $d = self::get_photo_date($path);
+    $d = self::get_photo_date($file);
     return array("post_date" => $d);
   }
 

@@ -1,6 +1,8 @@
 <?php
 
 ob_clean();
+print "FOO";
+die;
 
 if(have_posts()){
   the_post();

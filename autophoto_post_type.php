@@ -59,7 +59,6 @@ class AutophotoPostType {
   public function single_template_chooser($template) {
     global $post;
 
-
     if($post->post_type == self::POST_TYPE){
       if(@$_GET["display"] == "thumbnail")
         # special case where we just want to spit out the thumbnail data
@@ -67,7 +66,7 @@ class AutophotoPostType {
       # do we have a picture, or an album?
       # if there is a path associated with it, it should be a picture
       # note the get_metadata call is cached
-      if(!empty($post->_autophoto_path)){
+      if(!Album::is_album($post)){
         if($theme_file = locate_template("single-autophoto-photo.php"))
           return $theme_file;
         return __DIR__ . "/templates/single-autophoto-photo.php";
@@ -78,6 +77,17 @@ class AutophotoPostType {
       }
     }
     return $template;
+  }
+
+  public static function get_thumbnail_url($post){
+    $url = get_permalink($post);
+    if(strpos($url, '?') === false){
+      $url .= "?";
+    } else {
+      $url .= "&";
+    }
+    $url .= "display=thumbnail";
+    return $url;
   }
 
   public function add_meta_boxes() {

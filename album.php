@@ -14,19 +14,27 @@ class Album {
    * Get the top level album corresponding to the specified folder.
    */
   public static function get_toplevel_album($folder){
-    $folder_name = basename($folder);
     $root = new Album(0);
-    $album = $root->find_album($folder_name);
+    $post_name = $root->get_album_name($folder);
+    $album = $root->find_album($post_name);
     if(!$album){
-      $album = $root->create_album_post($folder_name);
+      $album = new Album($root->create_child_post($post_name));
     }
+    return $album;
+  }
+
+  /**
+   * Determine if the specified post is an album under this one.
+   */
+  public static function is_album($post){
+    return 0 === strpos($post->post_name, "album-");
   }
 
   /**
    * Find child album 
    */
   private function find_album($name){
-    $args = array("post_parent" => $parent_album, "post_type" => "autophoto-album", "name" => $name);
+    $args = array("post_parent" => $this->album_id, "post_type" => AutophotoPostType::POST_TYPE, "name" => $name);
     $matches = get_posts($args);
     if(count($matches) > 0){
       return new Album($matches[0]->ID);
@@ -35,7 +43,7 @@ class Album {
   }
 
   /**
-   * Create child album
+   * Create child post, return post id
    */
   private function create_child_post($name, $post_data=array()){
     $args = array(
@@ -66,16 +74,17 @@ class Album {
     while(($file = readdir($dh)) !== false) {
       $full_path = "$folder/$file";
       if(is_dir($full_path) && $file[0] != ".") {
-        $album = $this->find_album($file);
+        $album_post_name = $this->get_album_name($file);
+        $album = $this->find_album($album_post_name);
         if(!$album) {
           $result->new_albums++;
-          $album = new Album($this->create_child_post($file));
+          $album = new Album($this->create_child_post($album_post_name));
         }
         $album->scan_folder($full_path, $result);
       } else if(is_file($full_path) && $this->is_picture($full_path) ) {
-        if(!$this->has_photo_file($full_path)){
-          $photo = new Photo($this->create_child_post($this->get_photo_name($file)), Photo::get_post_data($file));
-          $photo->update_photo_data($full_path);
+        if(!$this->has_photo($full_path)){
+          $photo = new Photo($this->create_child_post($this->get_photo_name($file), Photo::get_post_data($full_path)));
+          $photo->update_photo_metadata($full_path);
           $result->new_pictures++;
         }
       }
@@ -91,7 +100,7 @@ class Album {
     if(!$this->photo_names) {
       $this->photo_names = $this->get_album_photo_names();
     }
-    return isset($this->photo_names[get_photo_name($path)]);
+    return isset($this->photo_names[$this->get_photo_name($path)]);
   }
 
   /**
@@ -100,7 +109,16 @@ class Album {
    * Therefore we use the album id as a prefix.
    */
   private function get_photo_name($path) {
-    return sanitize_title("$this->album_id-" . strtolower(basename($file)));
+    return sanitize_title("$this->album_id-" . strtolower(basename($path)));
+  }
+
+  /**
+   * Create name for the specified album folder.
+   * The name must be unique and easily inferred from the path.
+   * Additionally we use the name to distinguish between photo and album posts.
+   */
+  private function get_album_name($path) {
+    return sanitize_title("album-$this->album_id-" . strtolower(basename($path)));
   }
 
   /**
@@ -111,7 +129,7 @@ class Album {
   private function get_album_photo_names(){
     $args = array(
       "post_parent" => $this->album_id, 
-      "post_type" => AlbumPostType::POST_TYPE, 
+      "post_type" => AutophotoPostType::POST_TYPE, 
       "posts_per_page" => -1
     );
     $matches = get_posts($args);
@@ -132,9 +150,9 @@ class Album {
    */
   private function update_album_date(){
     global $wpdb;
-    $d = $wpdb->get_var($wpdb->prepare("select min(post_date) from $wpdb->posts where post_parent=%d and post_type like 'autophoto-%%'", $albumid));
+    $d = $wpdb->get_var($wpdb->prepare("select min(post_date) from $wpdb->posts where post_parent=%d and post_type like %s", $this->album_id, AutophotoPostType::POST_TYPE));
     if($d){
-      wp_update_post(array('ID' => $albumid, 'post_date' => $d));
+      wp_update_post(array('ID' => $this->album_id, 'post_date' => $d));
     }
   }
 
