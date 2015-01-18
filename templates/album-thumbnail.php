@@ -5,11 +5,11 @@ if(have_posts()){
   the_post();
 
   $thumb = $post->_autophoto_thumb;
-  if(!empty($thumb) && file_exists($thumb)) {
+  if(!empty($thumb)) {
     // photo
     header("Content-Type: image/jpeg");
 
-    readfile($thumb);
+    echo base64_decode($thumb);
   } else {
     // album
     $album_id = $post->ID;
@@ -18,10 +18,10 @@ if(have_posts()){
       $query->the_post();
 
       $thumb = get_post_meta($post->ID, "_autophoto_thumb", true);
-      if($thumb && file_exists($thumb)) {
+      if($thumb) {
         header("Content-Type: image/jpeg");
 
-        readfile($thumb);
+        echo base64_decode($thumb);
       }
     }
   }

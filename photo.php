@@ -25,8 +25,8 @@ class Photo {
 #      wp_update_post($post_data);
 #    }
     $thumb = $this->generate_thumb($path);
-    add_post_meta($this->photo_id, "_autophoto_path", $path);
-    add_post_meta($this->photo_id, "_autophoto_thumb", $thumb);
+    add_post_meta($this->photo_id, "_autophoto_path", $path, true);
+    add_post_meta($this->photo_id, "_autophoto_thumb", $thumb, true) || update_post_meta($this->photo_id, "_autophoto_thumb", $thumb);
 
   }
 
@@ -52,17 +52,9 @@ class Photo {
   }
 
   /**
-   * Create a thumb file under the .thumbs directory.
+   * Generate thumbnail data and return it as a base64 encoded string
    */
   private function generate_thumb($file) {
-    $dir = dirname($file) . "/.thumbs";
-    if(!is_dir($dir)){
-      if(!mkdir($dir))
-        throw new \Exception("Unable to create thumb directory $dir");
-    }
-    $thumb_path = "$dir/" . basename($file);
-    if(file_exists($thumb_path))
-      return $thumb_path;
     $img = imagecreatefromjpeg($file);
     $width = imagesx($img);
     $height = imagesy($img);
@@ -73,9 +65,12 @@ class Photo {
     if(!$tmp_img)
       throw new \Exception("Could not create image: " . error_get_last()["message"]);
     imagecopyresized($tmp_img, $img, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-    if(!imagejpeg($tmp_img, $thumb_path))
+    ob_start();
+    if(!imagejpeg($tmp_img))
       throw new \Exception("Thumbnail generation failed: " . error_get_last()["message"]);
-    return $thumb_path;
+    $thumb_content = ob_get_contents();
+    ob_end_clean();
+    return base64_encode($thumb_content);
   }
 
 }
